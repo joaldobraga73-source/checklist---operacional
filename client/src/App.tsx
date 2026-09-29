@@ -12,8 +12,8 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
+      {/* GitHub Pages serves this app from /checklist---operacional/. */}
+      <Route component={Home} />
     </Switch>
   );
 }
