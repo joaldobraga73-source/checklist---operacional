@@ -242,7 +242,7 @@ export default function Home() {
   const totalWeight = useMemo(() => checklist.questions.reduce((sum, q) => sum + q.weight, 0), [checklist.questions]);
   const formatPercent = (value: number) => Math.abs(value - 100) < 0.01 ? "100" : Number(value.toFixed(2)).toString();
   const answered = checklist.questions.filter((q) => q.status !== null).length;
-  const applicableWeight = useMemo(() => checklist.questions.reduce((sum, q) => sum + (q.status !== "nao-se-aplica" ? q.weight : 0), 0), [checklist.questions]);
+  const applicableWeight = useMemo(() => checklist.questions.reduce((sum, q) => sum + (q.status !== "nao-se-aplica" && q.status !== "nao-observado" ? q.weight : 0), 0), [checklist.questions]);
   const score = useMemo(() => { const points = checklist.questions.reduce((sum, q) => sum + (q.status === "conforme" ? q.weight : 0), 0); return applicableWeight ? Math.round((points / applicableWeight) * 100) : 0; }, [checklist.questions, applicableWeight]);
   const progress = checklist.questions.length ? Math.round((answered / checklist.questions.length) * 100) : 0;
   const isValid = Math.abs(totalWeight - 100) < 0.01;
@@ -406,7 +406,7 @@ export default function Home() {
       return groups;
     }, {});
     const topicRows = Object.entries(topics).map(([topic, questions]) => {
-      const possible = questions.reduce((sum, question) => sum + (question.status === "nao-se-aplica" ? 0 : question.weight), 0);
+      const possible = questions.reduce((sum, question) => sum + (question.status !== "nao-se-aplica" && question.status !== "nao-observado" ? question.weight : 0), 0);
       const obtained = questions.reduce((sum, question) => sum + (question.status === "conforme" ? question.weight : 0), 0);
       const percentage = possible ? (obtained / possible) * 100 : null;
       return `<tr><td>${escapeHtml(topic)}</td><td>${formatPercent(possible)}</td><td>${percentage === null ? "—" : formatPercent(obtained)}</td><td>${percentage === null ? "Nota não calculada" : `${formatPercent(percentage)} %`}</td></tr>`;
@@ -535,7 +535,7 @@ export default function Home() {
                   <React.Fragment key={q.id}>{(index === 0 || q.section !== checklist.questions[index - 1]?.section) && <div className="topic-heading"><span className="topic-number">{q.section?.split(".")[0]}</span><div><span className="section-kicker">TÓPICO</span><h3>{q.section}</h3></div></div>}
                   <article className={`question-card ${q.status ? "answered" : ""}`}>
                     <div className="question-index">{String(index + 1).padStart(2, "0")}</div>
-                    <div className="question-body"><p>{q.text}</p><span className="weight-label">Peso {q.weight}%</span></div>
+                    <div className="question-body"><p>{q.text}</p><span className="weight-label">{q.status === "nao-se-aplica" || q.status === "nao-observado" ? "Sem peso contabilizado" : `Peso ${q.weight}%`}</span></div>
                     <div className="answer-actions">
                       <button className={`answer-button conform ${q.status === "conforme" ? "selected" : ""}`} onClick={() => updateQuestion(q.id, { status: q.status === "conforme" ? null : "conforme" })}><Check size={18} /> <span>Conforme</span></button>
                       <button className={`answer-button nonconform ${q.status === "nao-conforme" ? "selected" : ""}`} onClick={() => updateQuestion(q.id, { status: q.status === "nao-conforme" ? null : "nao-conforme" })}><X size={18} /> <span>Não conforme</span></button>
