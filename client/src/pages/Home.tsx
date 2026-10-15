@@ -151,6 +151,21 @@ const starter: Checklist = {
 
 const uid = () => `q-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const normalize = (value: string) => Number(value.replace(",", ".")) || 0;
+const checklistDb = () => new Promise<IDBDatabase | null>((resolve) => {
+  if (!window.indexedDB) { resolve(null); return; }
+  const request = window.indexedDB.open("cherry-checklist-db", 1);
+  request.onupgradeneeded = () => request.result.createObjectStore("app", { keyPath: "id" });
+  request.onsuccess = () => resolve(request.result);
+  request.onerror = () => resolve(null);
+});
+const readChecklistDb = async () => {
+  const db = await checklistDb(); if (!db) return null;
+  return new Promise<any>((resolve) => { const request = db.transaction("app", "readonly").objectStore("app").get("checklist"); request.onsuccess = () => resolve(request.result?.value || null); request.onerror = () => resolve(null); });
+};
+const writeChecklistDb = async (value: Checklist) => {
+  const db = await checklistDb(); if (!db) return;
+  await new Promise<void>((resolve) => { const request = db.transaction("app", "readwrite").objectStore("app").put({ id: "checklist", value }); request.onsuccess = () => resolve(); request.onerror = () => resolve(); });
+};
 const normalizeChecklist = (value: any): Checklist => ({ ...value, questions: (value.questions || []).map((question: any) => { const text = String(question.text || "").replace(/^1\.5 É realizada higienização das embalagens/, "14.2 É realizada higienização das embalagens").replace(/^14\.29 Na área de produção possui borrifadores/, "15.1 Na área de produção possui borrifadores"); return { ...question, text, section: question.section || sectionForQuestion(text), photos: (question.photos || []).map((photo: any) => typeof photo === "string" ? { src: photo, comment: "", isPrimary: false, capturedAt: new Date().toISOString() } : photo) }; }) });
 const hashPassword = async (value: string) => { const data = new TextEncoder().encode(value); const digest = await crypto.subtle.digest("SHA-256", data); return Array.from(new Uint8Array(digest)).map((item) => item.toString(16).padStart(2, "0")).join(""); };
 
@@ -248,8 +263,18 @@ export default function Home() {
   const isValid = Math.abs(totalWeight - 100) < 0.01;
 
   useEffect(() => {
-    localStorage.setItem("cherry-checklist", JSON.stringify(checklist));
+    const lightweight = { ...checklist, questions: checklist.questions.map((question) => ({ ...question, photos: [] })) };
+    try {
+      localStorage.setItem("cherry-checklist", JSON.stringify(lightweight));
+    } catch {
+      try { localStorage.removeItem("cherry-checklist"); localStorage.setItem("cherry-checklist", JSON.stringify(lightweight)); } catch { /* IndexedDB mantém a cópia completa. */ }
+    }
+    void writeChecklistDb(checklist);
   }, [checklist]);
+
+  useEffect(() => {
+    void readChecklistDb().then((stored) => { if (stored?.questions?.length) setChecklist(normalizeChecklist(stored)); });
+  }, []);
 
   useEffect(() => { localStorage.setItem("cherry-history", JSON.stringify(history)); }, [history]);
   useEffect(() => { localStorage.setItem("cherry-profile", JSON.stringify(profile)); }, [profile]);
