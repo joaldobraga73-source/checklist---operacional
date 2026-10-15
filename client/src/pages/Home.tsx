@@ -192,6 +192,7 @@ export default function Home() {
       return starter;
     }
   });
+  const [storageReady, setStorageReady] = useState(false);
   const [history, setHistory] = useState<HistoryRecord[]>(() => {
     try { return JSON.parse(localStorage.getItem("cherry-history") || "[]"); } catch { return []; }
   });
@@ -263,6 +264,7 @@ export default function Home() {
   const isValid = Math.abs(totalWeight - 100) < 0.01;
 
   useEffect(() => {
+    if (!storageReady) return;
     const lightweight = { ...checklist, questions: checklist.questions.map((question) => ({ ...question, photos: [] })) };
     try {
       localStorage.setItem("cherry-checklist", JSON.stringify(lightweight));
@@ -270,10 +272,15 @@ export default function Home() {
       try { localStorage.removeItem("cherry-checklist"); localStorage.setItem("cherry-checklist", JSON.stringify(lightweight)); } catch { /* IndexedDB mantém a cópia completa. */ }
     }
     void writeChecklistDb(checklist);
-  }, [checklist]);
+  }, [checklist, storageReady]);
 
   useEffect(() => {
-    void readChecklistDb().then((stored) => { if (stored?.questions?.length) setChecklist(normalizeChecklist(stored)); });
+    void readChecklistDb().then((stored) => {
+      const currentPhotoCount = checklist.questions.reduce((total, question) => total + (question.photos?.length || 0), 0);
+      const storedPhotoCount = stored?.questions?.reduce((total: number, question: Question) => total + (question.photos?.length || 0), 0) || 0;
+      if (stored?.questions?.length && storedPhotoCount >= currentPhotoCount) setChecklist(normalizeChecklist(stored));
+      setStorageReady(true);
+    });
   }, []);
 
   useEffect(() => { localStorage.setItem("cherry-history", JSON.stringify(history)); }, [history]);
